@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>改良风险分层计算器</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Noto+Serif+SC:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f5f5f0;
+    --surface: #ffffff;
+    --surface2: #efefeb;
+    --border: #ddddd8;
+    --text: #1a1a1a;
+    --text-muted: #888884;
+    --accent: #5a7fa8;
+    --accent-dim: rgba(90,127,168,0.10);
+    --low: #2e8b4a;
+    --low-bg: rgba(46,139,74,0.10);
+    --int: #b07d1a;
+    --int-bg: rgba(176,125,26,0.10);
+    --high: #c0392b;
+    --high-bg: rgba(192,57,43,0.10);
+    --radius: 8px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Serif SC', serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 40px 16px 60px;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 680px;
+  }
+
+  /* Header */
+  .header {
+    margin-bottom: 36px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 24px;
+  }
+
+  .header-tag {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 26px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.01em;
+    margin-bottom: 8px;
+  }
+
+  .header p {
+    font-size: 13px;
+    color: var(--text-muted);
+    font-weight: 300;
+    line-height: 1.6;
+  }
+
+  /* Section */
+  .section {
+    margin-bottom: 20px;
+  }
+
+  .section-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  /* Age input */
+  .age-wrapper {
+    display: flex;
+    align-items: center;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    transition: border-color 0.15s;
+  }
+  .age-wrapper:focus-within {
+    border-color: var(--accent);
+  }
+
+  .age-wrapper input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 22px;
+    padding: 14px 18px;
+    width: 100%;
+  }
+
+  .age-wrapper input::placeholder { color: var(--text-muted); font-size: 16px; }
+
+  .age-unit {
+    padding: 0 16px;
+    color: var(--text-muted);
+    font-size: 13px;
+    font-family: 'IBM Plex Mono', monospace;
+    border-left: 1px solid var(--border);
+    height: 100%;
+    display: flex;
+    align-items: center;
+    min-width: 60px;
+  }
+
+  /* Score options */
+  .options-grid {
+    display: grid;
+    gap: 8px;
+  }
+
+  .option-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 13px 16px;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: left;
+    color: var(--text);
+    font-family: 'Noto Serif SC', serif;
+  }
+
+  .option-btn:hover {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+  }
+
+  .option-btn.selected {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+  }
+
+  .option-btn .opt-main {
+    font-size: 14px;
+    line-height: 1.4;
+  }
+
+  .option-btn .opt-sub {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  .option-btn .opt-score {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--accent);
+    background: var(--accent-dim);
+    padding: 3px 9px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    margin-left: 12px;
+  }
+
+  /* Cytogenetics: grouped */
+  .cyto-group {
+    margin-bottom: 10px;
+  }
+  .cyto-group-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: 'IBM Plex Mono', monospace;
+    letter-spacing: 0.08em;
+    padding: 4px 0 6px 2px;
+  }
+
+  /* Calculate button */
+  .calc-btn {
+    width: 100%;
+    padding: 16px;
+    margin-top: 28px;
+    background: var(--accent);
+    color: #0d1117;
+    border: none;
+    border-radius: var(--radius);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+  .calc-btn:hover { opacity: 0.88; }
+  .calc-btn:active { transform: scale(0.99); }
+
+  /* Result */
+  .result {
+    margin-top: 24px;
+    border-radius: var(--radius);
+    padding: 24px;
+    border: 1px solid;
+    display: none;
+    animation: fadeIn 0.3s ease;
+  }
+  .result.show { display: block; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .result.low   { border-color: var(--low);  background: var(--low-bg); }
+  .result.int   { border-color: var(--int);  background: var(--int-bg); }
+  .result.high  { border-color: var(--high); background: var(--high-bg); }
+
+  .result-tier {
+    font-size: 13px;
+    font-family: 'IBM Plex Mono', monospace;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .result.low .result-tier  { color: var(--low); }
+  .result.int .result-tier  { color: var(--int); }
+  .result.high .result-tier { color: var(--high); }
+
+  .result-label {
+    font-size: 32px;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+  .result.low .result-label  { color: var(--low); }
+  .result.int .result-label  { color: var(--int); }
+  .result.high .result-label { color: var(--high); }
+
+  .result-detail {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.8;
+    border-top: 1px solid var(--border);
+    margin-top: 12px;
+    padding-top: 12px;
+  }
+  .result-detail span { color: var(--text); }
+
+  /* Error */
+  .error-msg {
+    margin-top: 14px;
+    font-size: 13px;
+    color: var(--high);
+    font-family: 'IBM Plex Mono', monospace;
+    display: none;
+  }
+  .error-msg.show { display: block; }
+
+  /* Reset */
+  .reset-btn {
+    display: block;
+    margin: 14px auto 0;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    padding: 8px 20px;
+    border-radius: 6px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .reset-btn:hover { border-color: var(--text-muted); color: var(--text); }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-tag">改良风险分层工具</div>
+    <p>适用于 MDS/AML 和 AML-MR 患者</p>
+  </div>
+
+  <!-- Age -->
+  <div class="section">
+    <div class="section-label">01 · 年龄（Age）</div>
+    <div class="age-wrapper">
+      <input type="number" id="age" min="1" max="120" placeholder="请输入年龄" />
+      <div class="age-unit">岁</div>
+    </div>
+  </div>
+
+  <!-- ANC -->
+  <div class="section">
+    <div class="section-label">02 · 中性粒细胞绝对计数（ANC）</div>
+    <div class="options-grid" id="anc-options">
+      <button class="option-btn" data-group="anc" data-score="0" onclick="select(this,'anc')">
+        <div>
+          <div class="opt-main">≥ 0.8 × 10⁹/L</div>
+          <div class="opt-sub">ANC ≥ 0.8</div>
+        </div>
+        <div class="opt-score">0 分</div>
+      </button>
+      <button class="option-btn" data-group="anc" data-score="0.5" onclick="select(this,'anc')">
+        <div>
+          <div class="opt-main">&lt; 0.8 × 10⁹/L</div>
+          <div class="opt-sub">ANC &lt; 0.8</div>
+        </div>
+        <div class="opt-score">0.5 分</div>
+      </button>
+    </div>
+  </div>
+
+  <!-- Cytogenetics -->
+  <div class="section">
+    <div class="section-label">03 · 细胞遗传学（Cytogenetics）</div>
+
+    <div class="cyto-group">
+      <div class="cyto-group-label">极好（Very Good）· 0 分</div>
+      <div class="options-grid">
+        <button class="option-btn" data-group="cyto" data-score="0" onclick="select(this,'cyto')">
+          <div>
+            <div class="opt-main">-Y &nbsp;&nbsp;或&nbsp;&nbsp; del(11q)</div>
+            <div class="opt-sub">极好预后</div>
+          </div>
+          <div class="opt-score">0 分</div>
+        </button>
+      </div>
+    </div>
+
+    <div class="cyto-group">
+      <div class="cyto-group-label">好（Good）· 1 分</div>
+      <div class="options-grid">
+        <button class="option-btn" data-group="cyto" data-score="1" onclick="select(this,'cyto')">
+          <div>
+            <div class="opt-main">正常核型</div>
+            <div class="opt-sub">Normal karyotype</div>
+          </div>
+          <div class="opt-score">1 分</div>
+        </button>
+        <button class="option-btn" data-group="cyto" data-score="1" onclick="select(this,'cyto')">
+          <div>
+            <div class="opt-main">del(5q)&nbsp;&nbsp;/&nbsp;&nbsp;del(12p)&nbsp;&nbsp;/&nbsp;&nbsp;del(20q)</div>
+            <div class="opt-sub">单一异常</div>
+          </div>
+          <div class="opt-score">1 分</div>
+        </button>
+        <button class="option-btn" data-group="cyto" data-score="1" onclick="select(this,'cyto')">
+          <div>
+            <div class="opt-main">del(5q) + 另一种异常</div>
+            <div class="opt-sub">del(5q) 附加异常</div>
+          </div>
+          <div class="opt-score">1 分</div>
+        </button>
+      </div>
+    </div>
+
+    <div class="cyto-group">
+      <div class="cyto-group-label">中等（Intermediate）· 2 分</div>
+      <div class="options-grid">
+        <button class="option-btn" data-group="cyto" data-score="2" onclick="select(this,'cyto')">
+          <div>
+            <div class="opt-main">del(7q)&nbsp;&nbsp;/&nbsp;&nbsp;+8&nbsp;&nbsp;/&nbsp;&nbsp;+19&nbsp;&nbsp;/&nbsp;&nbsp;i(17q)</div>
+            <div class="opt-sub">单一中等异常</div>
+          </div>
+          <div class="opt-score">2 分</div>
+        </button>
+        <button class="option-btn" data-group="cyto" data-score="2" onclick="select(this,'cyto')">
+          <div>
+            <div class="opt-main">1–2 个独立克隆染色体异常（其他）</div>
+            <div class="opt-sub">其他单或双克隆异常</div>
+          </div>
+          <div class="opt-score">2 分</div>
+        </button>
+      </div>
+    </div>
+
+    <div class="cyto-group">
+      <div class="cyto-group-label">差（Poor）· 3 分</div>
+      <div class="options-grid">
+        <button class="option-btn" data-group="cyto" data-score="3" onclick="select(this,'cyto')">
+          <div>
+            <div class="opt-main">der(3)q21 / der(3)q26</div>
+            <div class="opt-sub">涉及 3q 的重排</div>
+          </div>
+          <div class="opt-score">3 分</div>
+        </button>
+        <button class="option-btn" data-group="cyto" data-score="3" onclick="select(this,'cyto')">
+          <div>
+            <div class="opt-main">-7 / del(7q) + 另一种异常</div>
+            <div class="opt-sub">7号染色体异常附加</div>
+          </div>
+          <div class="opt-score">3 分</div>
+        </button>
+        <button class="option-btn" data-group="cyto" data-score="3" onclick="select(this,'cyto')">
+          <div>
+            <div class="opt-main">复杂异常（3 个）</div>
+            <div class="opt-sub">恰好 3 种染色体异常</div>
+          </div>
+          <div class="opt-score">3 分</div>
+        </button>
+      </div>
+    </div>
+
+    <div class="cyto-group">
+      <div class="cyto-group-label">极差（Very Poor）· 4 分</div>
+      <div class="options-grid">
+        <button class="option-btn" data-group="cyto" data-score="4" onclick="select(this,'cyto')">
+          <div>
+            <div class="opt-main">复杂异常（&gt; 3 个）</div>
+            <div class="opt-sub">超过 3 种染色体异常</div>
+          </div>
+          <div class="opt-score">4 分</div>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Calculate -->
+  <button class="calc-btn" onclick="calculate()">▶ 计算风险评分</button>
+
+  <!-- Error -->
+  <div class="error-msg" id="error-msg">⚠ 请填写所有项目后再计算</div>
+
+  <!-- Result -->
+  <div class="result" id="result">
+    <div class="result-tier" id="result-tier">风险分层</div>
+    <div class="result-label" id="result-label">—</div>
+    <div class="result-detail" id="result-detail"></div>
+  </div>
+
+  <button class="reset-btn" onclick="resetAll()" style="margin-top:20px">↺ 重置</button>
+
+</div>
+
+<script>
+  const selections = { anc: null, cyto: null };
+
+  function select(btn, group) {
+    document.querySelectorAll(`.option-btn[data-group="${group}"]`).forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    selections[group] = parseFloat(btn.dataset.score);
+    hideError();
+  }
+
+  function calculate() {
+    const age = parseFloat(document.getElementById('age').value);
+    const anc = selections.anc;
+    const cyto = selections.cyto;
+
+    if (!age || anc === null || cyto === null) {
+      showError(); return;
+    }
+
+    const score = 0.02 * age - 0.68 * anc + 0.143 * cyto;
+    const s = score.toFixed(5);
+
+    const resultEl = document.getElementById('result');
+    const tierEl   = document.getElementById('result-tier');
+    const labelEl  = document.getElementById('result-label');
+    const detailEl = document.getElementById('result-detail');
+
+    resultEl.className = 'result show';
+
+    let tier, label, cls;
+    if (score < 1.31655) {
+      tier = '低危'; label = 'Low'; cls = 'low';
+    } else if (score <= 1.6650) {
+      tier = '中危'; label = 'Intermediate'; cls = 'int';
+    } else {
+      tier = '高危'; label = 'High'; cls = 'high';
+    }
+
+    resultEl.classList.add(cls);
+    tierEl.textContent = tier + ' · 风险分层';
+    labelEl.textContent = label;
+    detailEl.innerHTML =
+      `Risk score = 0.02 × <span>${age}</span> − 0.68 × <span>${anc}</span> + 0.143 × <span>${cyto}</span><br>` +
+      `&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= <span>${s}</span><br><br>` +
+      `阈值：Low &lt; 1.31655 ≤ Intermediate ≤ 1.6650 &lt; High`;
+
+    resultEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function showError() {
+    document.getElementById('error-msg').classList.add('show');
+    document.getElementById('result').className = 'result';
+  }
+  function hideError() {
+    document.getElementById('error-msg').classList.remove('show');
+  }
+
+  function resetAll() {
+    document.getElementById('age').value = '';
+    document.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
+    selections.anc = null; selections.cyto = null;
+    document.getElementById('result').className = 'result';
+    document.getElementById('error-msg').classList.remove('show');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+</script>
+</body>
+</html>
